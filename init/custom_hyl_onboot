@@ -1,34 +1,23 @@
-# HYL final setup, runs AFTER rc.user
+#!/bin/sh
 
-# customer requires 1.25MSPS. Works at 2MSPS ..
-set.site 0 sync_role master 1250000 TRG:DX=d0
+# Manually set up clock; skip sync_role
+set.site 0 SYS:CLK:FPMUX FPCLK
+set.site 1 CLK=external
+set.site 1 CLK:DX=d0
+set.site 1 CLK:SENSE=rising
+set.site 1 CLKDIV=1
 
-# Configure Digital Encoder
+# For other combinations try 'set.site 0 sync_role help'
+# configure dig encoder
 set.site 2 phaseA_en 1
 set.site 2 zsel 3
 set.site 2 Zcount_en 1
-set.site 2 es_enable 1
 
-# Enable new msb_direct, embeds d1, d2 state in d31 of FACET, INDEX counters.
-set.site 2 msb_direct 1
-
-# Push FACET (A) onto Module Event
 set.site 0 SIG:EVENT_SRC:3 MOD
-
-# Configure RTM to trigger on FACET Rising Edge
+set.site 1 rtm_translen=8192
+set.site 1 trg=1,1,1
 set.site 1 rgm=3,3,1
 
-# Customer requires transient 8192, but sorry we have to steal 4 samples for ES.
-TL=8192
+echo STREAM_OPTS= >> /etc/sysconfig/acq400_streamd.conf
+get.site 1 clk >> /mnt/clk_config.log
 
-# ES is 4 samples long..
-set.site 1 rtm_translen $(($TL-4))
-SSB=$(get.site 0 ssb)
-
-# one buffer per FACET for snappy waveform update
-set.site 0 bufferlen $(($TL*$SSB))
-
-# 10000 sec timeout (3h maximum time between trays..)
-set.sys /sys/module/acq420fmc/parameters/DMA_TIMEOUT 100000
-
-/usr/local/CARE/axi-dma-enable-live-stream

@@ -1,73 +1,20 @@
 #!/bin/sh
 
 
-hyl_config_production() {
-	echo +++ hyl_config_production
-
-cat - >/etc/inetd.hyl.conf <<EOF
-61001 stream tcp nowait root HY-comm HY-comm dummy
-61002 stream tcp nowait root HY-stat HY-stat dummy
-EOF
-sed -i "s/SITE/$SITE/g" /etc/inetd.hyl.conf
-
-inetd /etc/inetd.hyl.conf
-
-PIDF=/var/run/hyl.pid
-LOG=/var/log/hyl.log
-
-echo "OLD $(hostname)_def.dat" >/dev/shm/HY-comm
-echo "OLD $(hostname)_def.dat" >/dev/shm/HY-stat
-
 EARLY=/usr/local/init/custom_hyl_early
-if [ -e /mnt/local/custom_hyl_early ]; then
-	EARLY=/mnt/local/custom_hyl_early
-fi
+
 echo +++ $EARLY start
 $EARLY
 echo +++ $EARLY complete
 
-/usr/local/bin/procServ -c / -p $PIDF -L $LOG 61003 /usr/local/bin/HY-ctrl
 
 (
 	while [ ! -e /var/www/d-tacq/rc-local-complete ]; do
 		sleep 1
 	done
 	ONBOOT=/usr/local/init/custom_hyl_onboot
-	if [ -e /mnt/local/custom_hyl_onboot ]; then
-		ONBOOT=/mnt/local/custom_hyl_onboot
-	fi
 	echo +++ $ONBOOT start
 	$ONBOOT
 	echo +++ $ONBOOT complete
 	date > /var/www/d-tacq/custom_hyl_onboot_complete
 ) &
-
-}
-
-hyl_config_stim() {
-	echo +++ hyl_config_stim
-	
-	STIM_INIT=/mnt/local/test_HYLOG_GPG
-	if [ -e $STIM_INIT ]; then
-		echo "HY STIM running $STIM_INIT"
-		cd $(dirname $STIM_INIT)
-		$STIM_INIT
-		return
-	fi
-	STIM_INIT=/usr/local/CARE/test_HYLOG_GPG
-	if [ -e $STIM_INIT ]; then
-		echo "HY STIM running $STIM_INIT"
-		cd $(dirname $STIM_INIT)
-		$STIM_INIT
-		return
-	fi
-	echo "ERROR NO STIM INIT FOUND"	
-}
-
-
-grep QEN /tmp/fpga_status
-if [ $? -eq 0 ]; then
-	hyl_config_production
-else
-	hyl_config_stim
-fi
